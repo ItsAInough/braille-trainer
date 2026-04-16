@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Braille Trainer A-Z</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #22c55e;
+      --accent-2: #38bdf8;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --dot-off: #334155;
+      --dot-on: #f8fafc;
+      --dot-correct: #22c55e;
+      --shadow: 0 10px 30px rgba(0,0,0,0.28);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b1222 0%, #111827 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app {
+      max-width: 520px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding: 14px 14px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .mode-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: var(--panel-2);
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn.active {
+      background: linear-gradient(135deg, var(--accent-2), #2563eb);
+    }
+
+    .menu-btn {
+      width: 52px;
+      height: 52px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      background: var(--panel-2);
+    }
+
+    .card {
+      background: rgba(17, 24, 39, 0.92);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .status-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .timer-wrap {
+      margin-top: 12px;
+    }
+
+    .timer-bar {
+      height: 12px;
+      width: 100%;
+      background: #0b1220;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .timer-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--warning), var(--danger));
+      transition: width 0.2s linear;
+    }
+
+    .prompt {
+      text-align: center;
+      padding: 4px 0 0;
+    }
+
+    .prompt .label {
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .big-letter {
+      font-size: clamp(4rem, 18vw, 6.4rem);
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      min-height: 1em;
+    }
+
+    .controls-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .braille-grid {
+      margin: 8px auto 4px;
+      width: min(250px, 75vw);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 22px;
+      justify-items: center;
+    }
+
+    .dot {
+      width: min(86px, 23vw);
+      height: min(86px, 23vw);
+      border-radius: 999px;
+      border: 3px solid #475569;
+      background: var(--dot-off);
+      color: transparent;
+      cursor: pointer;
+      transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+      box-shadow: inset 0 0 0 2px rgba(255,255,255,0.02);
+    }
+
+    .dot:active { transform: scale(0.96); }
+    .dot.on {
+      background: var(--dot-on);
+      border-color: #e2e8f0;
+    }
+    .dot.correct-solution {
+      background: var(--dot-correct);
+      border-color: #86efac;
+    }
+    .dot.locked {
+      cursor: default;
+    }
+
+    .action-box {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .answer-input {
+      flex: 1;
+      min-width: 0;
+      border: 2px solid #334155;
+      border-radius: 16px;
+      background: #0b1220;
+      color: var(--text);
+      font-size: 1.4rem;
+      font-weight: 700;
+      text-align: center;
+      padding: 14px 12px;
+      text-transform: uppercase;
+    }
+
+    .answer-input:focus {
+      outline: none;
+      border-color: var(--accent-2);
+    }
+
+    .primary {
+      background: linear-gradient(135deg, var(--accent), #16a34a);
+      color: #052e16;
+    }
+
+    .feedback {
+      min-height: 28px;
+      font-weight: 700;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    .feedback.good { color: #4ade80; }
+    .feedback.bad { color: #fca5a5; }
+    .feedback.neutral { color: var(--muted); }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      background: #0b1220;
+      border-radius: 16px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat .value {
+      font-size: 1.2rem;
+      font-weight: 800;
+    }
+
+    .menu {
+      position: absolute;
+      top: 74px;
+      right: 14px;
+      width: min(260px, calc(100vw - 28px));
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+      display: none;
+      z-index: 30;
+    }
+
+    .menu.open { display: block; }
+
+    .menu h3 {
+      margin: 4px 0 10px;
+      font-size: 1rem;
+    }
+
+    .menu p {
+      color: var(--muted);
+      font-size: 0.92rem;
+      margin: 0 0 12px;
+    }
+
+    .menu .danger {
+      width: 100%;
+      background: linear-gradient(135deg, #fb7185, #ef4444);
+      color: white;
+    }
+
+    .legend {
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .round-summary {
+      display: none;
+    }
+
+    .round-summary.open {
+      display: block;
+    }
+
+    .summary-list {
+      margin-top: 8px;
+      display: grid;
+      gap: 8px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .summary-item {
+      background: #0b1220;
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="topbar">
+      <div class="mode-switch">
+        <button id="aModeBtn" class="btn active">A-Type</button>
+        <button id="bModeBtn" class="btn">B-Type</button>
+      </div>
+      <button id="menuBtn" class="btn menu-btn" aria-label="Menü öffnen">☰</button>
+    </div>
+
+    <div id="menu" class="menu" aria-hidden="true">
+      <h3>Lernstand</h3>
+      <p>Die Gewichtungen und Buchstabenstufen werden lokal im Browser gespeichert.</p>
+      <button id="resetBtn" class="btn danger">Gewichtung zurücksetzen</button>
+    </div>
+
+    <section class="card">
+      <div class="status-row">
+        <div>
+          <div class="small">Modus</div>
+          <div id="modeLabel"><strong>A-Type</strong> · Braille legen</div>
+        </div>
+        <div>
+          <div class="small">Zeit</div>
+          <div><strong><span id="timeValue">20.0</span>s</strong></div>
+        </div>
+      </div>
+      <div class="timer-wrap">
+        <div class="timer-bar"><div id="timerFill" class="timer-fill"></div></div>
+      </div>
+      <div class="action-box">
+        <button id="startBtn" class="btn primary">Start</button>
+        <button id="pauseBtn" class="btn">Pause</button>
+      </div>
+
+      <div class="prompt">
+        <div id="promptLabel" class="label">Lege das Braille-Muster für diesen Buchstaben</div>
+        <div id="promptValue" class="big-letter">–</div>
+      </div>
+
+      <div id="brailleGrid" class="braille-grid">
+        <button class="dot" data-dot="1" aria-label="Punkt 1"></button>
+        <button class="dot" data-dot="4" aria-label="Punkt 4"></button>
+        <button class="dot" data-dot="2" aria-label="Punkt 2"></button>
+        <button class="dot" data-dot="5" aria-label="Punkt 5"></button>
+        <button class="dot" data-dot="3" aria-label="Punkt 3"></button>
+        <button class="dot" data-dot="6" aria-label="Punkt 6"></button>
+      </div>
+
+      <div id="aSubmitArea" class="action-box">
+        <button id="aSubmitBtn" class="btn primary">OK</button>
+      </div>
+
+      <div id="answerArea" class="action-box" style="display:none;">
+        <input id="answerInput" class="answer-input" type="text" maxlength="1" inputmode="latin" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Buchstabe eingeben" />
+        <button id="submitBtn" class="btn primary">OK</button>
+      </div>
+
+      <div id="feedback" class="feedback neutral">Drücke Start, um eine Runde zu beginnen</div>
+    </section>
+
+    <section class="card">
+      <div class="stats">
+        <div class="stat">
+          <div class="small">Richtig</div>
+          <div id="correctCount" class="value">0</div>
+        </div>
+        <div class="stat">
+          <div class="small">Falsch</div>
+          <div id="wrongCount" class="value">0</div>
+        </div>
+        <div class="stat">
+          <div class="small">Serie</div>
+          <div id="streakCount" class="value">0</div>
+        </div>
+        <div class="stat">
+          <div class="small">Runde</div>
+          <div id="roundProgress" class="value">0/20</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="roundSummary" class="card round-summary">
+      <div class="small">Rundenende</div>
+      <h2 id="summaryTitle" style="margin:6px 0 0;">Auswertung</h2>
+      <div class="summary-list" id="summaryList"></div>
+    </section>
+
+    <section class="card legend">
+      Eine Runde umfasst 20 Aufgaben. Der Timer startet erst mit Start. Schwierige Buchstaben werden durch eine Mischung aus Karteikasten-Stufe, Fehlergewichtung und Fälligkeit häufiger erneut abgefragt. Alles bleibt offline auf deinem Gerät gespeichert.
+    </section>
+  </div>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = 'braille-trainer-state-v2';
+      const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+      const ROUND_LENGTH = 20;
+      const ROUND_SECONDS = 20;
+      const BRAILLE_MAP = {
+        A: [1], B: [1,2], C: [1,4], D: [1,4,5], E: [1,5], F: [1,2,4], G: [1,2,4,5], H: [1,2,5], I: [2,4], J: [2,4,5],
+        K: [1,3], L: [1,2,3], M: [1,3,4], N: [1,3,4,5], O: [1,3,5], P: [1,2,3,4], Q: [1,2,3,4,5], R: [1,2,3,5], S: [2,3,4], T: [2,3,4,5],
+        U: [1,3,6], V: [1,2,3,6], W: [2,4,5,6], X: [1,3,4,6], Y: [1,3,4,5,6], Z: [1,3,5,6]
+      };
+
+      const defaultLetterState = () => ({
+        box: 1,
+        ease: 2.5,
+        intervalMs: 0,
+        dueAt: 0,
+        incorrectStreak: 0,
+        correctStreak: 0,
+        seen: 0,
+        correct: 0,
+        wrong: 0,
+        weightBoost: 0
+      });
+
+      const defaultState = () => ({
+        mode: 'A',
+        stats: { correct: 0, wrong: 0, streak: 0 },
+        letters: Object.fromEntries(LETTERS.map(letter => [letter, defaultLetterState()])),
+        currentLetter: null
+      });
+
+      let state = loadState();
+      let currentMode = state.mode || 'A';
+      let currentLetter = state.currentLetter || null;
+      let timer = ROUND_SECONDS;
+      let timerId = null;
+      let roundLocked = true;
+      let feedbackTimeout = null;
+      let isRoundActive = false;
+      let isPaused = false;
+      let roundIndex = 0;
+      let roundResults = [];
+
+      const aModeBtn = document.getElementById('aModeBtn');
+      const bModeBtn = document.getElementById('bModeBtn');
+      const menuBtn = document.getElementById('menuBtn');
+      const menu = document.getElementById('menu');
+      const resetBtn = document.getElementById('resetBtn');
+      const modeLabel = document.getElementById('modeLabel');
+      const promptLabel = document.getElementById('promptLabel');
+      const promptValue = document.getElementById('promptValue');
+      const timeValue = document.getElementById('timeValue');
+      const timerFill = document.getElementById('timerFill');
+      const startBtn = document.getElementById('startBtn');
+      const pauseBtn = document.getElementById('pauseBtn');
+      const dots = Array.from(document.querySelectorAll('.dot'));
+      const aSubmitArea = document.getElementById('aSubmitArea');
+      const aSubmitBtn = document.getElementById('aSubmitBtn');
+      const answerArea = document.getElementById('answerArea');
+      const answerInput = document.getElementById('answerInput');
+      const submitBtn = document.getElementById('submitBtn');
+      const feedback = document.getElementById('feedback');
+      const correctCount = document.getElementById('correctCount');
+      const wrongCount = document.getElementById('wrongCount');
+      const streakCount = document.getElementById('streakCount');
+      const roundProgress = document.getElementById('roundProgress');
+      const roundSummary = document.getElementById('roundSummary');
+      const summaryTitle = document.getElementById('summaryTitle');
+      const summaryList = document.getElementById('summaryList');
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return defaultState();
+          const parsed = JSON.parse(raw);
+          const base = defaultState();
+          if (parsed && parsed.letters) {
+            for (const letter of LETTERS) {
+              base.letters[letter] = { ...base.letters[letter], ...(parsed.letters[letter] || {}) };
+            }
+          }
+          base.stats = { ...base.stats, ...(parsed.stats || {}) };
+          base.mode = parsed.mode === 'B' ? 'B' : 'A';
+          base.currentLetter = LETTERS.includes(parsed.currentLetter) ? parsed.currentLetter : null;
+          return base;
+        } catch {
+          return defaultState();
+        }
+      }
+
+      function saveState() {
+        state.mode = currentMode;
+        state.currentLetter = currentLetter;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function setFeedback(message, type = 'neutral') {
+        feedback.textContent = message;
+        feedback.className = `feedback ${type}`;
+      }
+
+      function updateStats() {
+        correctCount.textContent = state.stats.correct;
+        wrongCount.textContent = state.stats.wrong;
+        streakCount.textContent = state.stats.streak;
+        roundProgress.textContent = `${roundIndex}/${ROUND_LENGTH}`;
+      }
+
+      function clearDots() {
+        dots.forEach(dot => dot.classList.remove('on', 'correct-solution'));
+      }
+
+      function getSelectedDots() {
+        return dots.filter(dot => dot.classList.contains('on')).map(dot => Number(dot.dataset.dot)).sort((a, b) => a - b);
+      }
+
+      function arraysEqual(a, b) {
+        return a.length === b.length && a.every((value, index) => value === b[index]);
+      }
+
+      function setMode(mode) {
+        currentMode = mode;
+        aModeBtn.classList.toggle('active', mode === 'A');
+        bModeBtn.classList.toggle('active', mode === 'B');
+        answerArea.style.display = mode === 'B' ? 'flex' : 'none';
+        aSubmitArea.style.display = mode === 'A' ? 'flex' : 'none';
+
+        if (mode === 'A') {
+          modeLabel.innerHTML = '<strong>A-Type</strong> · Braille legen';
+          promptLabel.textContent = 'Lege das Braille-Muster für diesen Buchstaben';
+          promptValue.textContent = isRoundActive && currentLetter ? currentLetter : '–';
+          clearDots();
+          dots.forEach(dot => {
+            dot.disabled = !isRoundActive || isPaused;
+            dot.classList.remove('locked');
+          });
+        } else {
+          modeLabel.innerHTML = '<strong>B-Type</strong> · Muster lesen';
+          promptLabel.textContent = 'Welcher Buchstabe ist dieses Braille-Muster?';
+          promptValue.textContent = '•';
+          answerInput.value = '';
+          dots.forEach(dot => {
+            dot.disabled = true;
+            dot.classList.add('locked');
+          });
+          if (isRoundActive && currentLetter) renderPatternForLetter(currentLetter);
+        }
+
+        saveState();
+        applyInteractionState();
+      }
+
+      function applyInteractionState() {
+        const idle = !isRoundActive;
+        const frozen = roundLocked || isPaused || idle;
+        startBtn.disabled = isRoundActive && !isPaused;
+        pauseBtn.disabled = !isRoundActive;
+        pauseBtn.textContent = isPaused ? 'Weiter' : 'Pause';
+        aSubmitBtn.disabled = frozen || currentMode !== 'A';
+        submitBtn.disabled = frozen || currentMode !== 'B';
+        answerInput.disabled = frozen || currentMode !== 'B';
+
+        if (currentMode === 'A') {
+          dots.forEach(dot => {
+            dot.disabled = frozen;
+            dot.classList.toggle('locked', frozen);
+          });
+        }
+      }
+
+      function getWeight(letter) {
+        const data = state.letters[letter];
+        const now = Date.now();
+        const dueFactor = data.dueAt <= now ? 2.2 : 0.55;
+        const boxFactor = Math.max(0.45, 2.6 - (data.box * 0.28));
+        const errorFactor = 1 + (data.incorrectStreak * 0.9) + (data.weightBoost || 0);
+        const familiarityPenalty = Math.max(0.65, 1 - data.correct * 0.03);
+        const seenProtection = data.seen === 0 ? 1.5 : 1;
+        return Math.max(0.15, dueFactor * boxFactor * errorFactor * familiarityPenalty * seenProtection);
+      }
+
+      function chooseNextLetter() {
+        const entries = LETTERS.map(letter => ({ letter, weight: getWeight(letter) }));
+        const filtered = entries.map(entry => ({ ...entry, weight: entry.letter === currentLetter ? entry.weight * 0.2 : entry.weight }));
+        const total = filtered.reduce((sum, item) => sum + item.weight, 0);
+        let random = Math.random() * total;
+        for (const item of filtered) {
+          random -= item.weight;
+          if (random <= 0) return item.letter;
+        }
+        return filtered[filtered.length - 1].letter;
+      }
+
+      function renderPatternForLetter(letter) {
+        const activeDots = new Set(BRAILLE_MAP[letter]);
+        dots.forEach(dot => {
+          const dotNumber = Number(dot.dataset.dot);
+          dot.classList.toggle('on', activeDots.has(dotNumber));
+          dot.classList.remove('correct-solution');
+        });
+      }
+
+      function showCorrectSolution(letter) {
+        const activeDots = new Set(BRAILLE_MAP[letter]);
+        dots.forEach(dot => {
+          const dotNumber = Number(dot.dataset.dot);
+          dot.classList.toggle('on', activeDots.has(dotNumber));
+          dot.classList.toggle('correct-solution', activeDots.has(dotNumber));
+        });
+      }
+
+      function resetRoundBoard() {
+        clearDots();
+        answerInput.value = '';
+      }
+
+      function prepareIdleScreen() {
+        clearInterval(timerId);
+        timer = ROUND_SECONDS;
+        updateTimerUI();
+        roundLocked = true;
+        isRoundActive = false;
+        isPaused = false;
+        currentLetter = null;
+        promptValue.textContent = currentMode === 'A' ? '–' : '•';
+        resetRoundBoard();
+        applyInteractionState();
+        saveState();
+      }
+
+      function startRoundSession() {
+        clearTimeout(feedbackTimeout);
+        roundResults = [];
+        roundIndex = 0;
+        roundSummary.classList.remove('open');
+        isRoundActive = true;
+        isPaused = false;
+        setFeedback('Runde gestartet', 'neutral');
+        startBtn.disabled = true;
+        nextQuestion();
+      }
+
+      function nextQuestion() {
+        clearTimeout(feedbackTimeout);
+        if (!isRoundActive) return;
+        if (roundIndex >= ROUND_LENGTH) {
+          finishRound();
+          return;
+        }
+
+        roundLocked = false;
+        timer = ROUND_SECONDS;
+        currentLetter = chooseNextLetter();
+        roundIndex += 1;
+        updateStats();
+
+        if (currentMode === 'A') {
+          promptValue.textContent = currentLetter;
+          resetRoundBoard();
+        } else {
+          promptValue.textContent = '•';
+          renderPatternForLetter(currentLetter);
+          answerInput.value = '';
+          setTimeout(() => { if (!isPaused && isRoundActive) answerInput.focus(); }, 60);
+        }
+
+        updateTimerUI();
+        applyInteractionState();
+        saveState();
+        startTimer();
+      }
+
+      function startTimer() {
+        clearInterval(timerId);
+        timerId = setInterval(() => {
+          if (isPaused || !isRoundActive) return;
+          timer = Math.max(0, timer - 0.1);
+          updateTimerUI();
+          if (timer <= 0) {
+            clearInterval(timerId);
+            handleTimeout();
+          }
+        }, 100);
+      }
+
+      function updateTimerUI() {
+        timeValue.textContent = timer.toFixed(1);
+        timerFill.style.width = `${(timer / ROUND_SECONDS) * 100}%`;
+      }
+
+      function updateLearning(letter, correct) {
+        const item = state.letters[letter];
+        const now = Date.now();
+        item.seen += 1;
+
+        if (correct) {
+          item.correct += 1;
+          item.correctStreak += 1;
+          item.incorrectStreak = 0;
+          item.weightBoost = Math.max(0, (item.weightBoost || 0) - 0.45);
+          item.box = Math.min(5, item.box + 1);
+          item.ease = Math.min(3.2, item.ease + 0.05);
+          item.intervalMs = item.intervalMs <= 0 ? 60 * 1000 : Math.round(item.intervalMs * item.ease);
+          const boxMultiplier = [0, 1, 2, 6, 18, 48][item.box] || 48;
+          item.dueAt = now + Math.max(item.intervalMs, boxMultiplier * 60 * 1000);
+        } else {
+          item.wrong += 1;
+          item.correctStreak = 0;
+          item.incorrectStreak += 1;
+          item.weightBoost = Math.min(8, (item.weightBoost || 0) + 1.25);
+          item.box = 1;
+          item.ease = Math.max(1.4, item.ease - 0.2);
+          item.intervalMs = 0;
+          item.dueAt = now;
+        }
+
+        saveState();
+      }
+
+      function registerGlobalResult(correct, message) {
+        if (correct) {
+          state.stats.correct += 1;
+          state.stats.streak += 1;
+          setFeedback(message, 'good');
+        } else {
+          state.stats.wrong += 1;
+          state.stats.streak = 0;
+          setFeedback(message, 'bad');
+        }
+        updateStats();
+        saveState();
+      }
+
+      function addRoundResult(letter, correct, reason) {
+        roundResults.push({ letter, correct, reason });
+      }
+
+      function continueAfterDelay(delay) {
+        feedbackTimeout = setTimeout(() => {
+          if (!isRoundActive) return;
+          nextQuestion();
+        }, delay);
+      }
+
+      function handleATrySubmit() {
+        if (roundLocked || currentMode !== 'A' || !isRoundActive || isPaused) return;
+        roundLocked = true;
+        applyInteractionState();
+        clearInterval(timerId);
+
+        const selected = getSelectedDots();
+        const correctDots = [...BRAILLE_MAP[currentLetter]].sort((a, b) => a - b);
+        const ok = arraysEqual(selected, correctDots);
+
+        updateLearning(currentLetter, ok);
+        registerGlobalResult(ok, ok ? `Richtig: ${currentLetter}` : `Falsch. ${currentLetter} = Punkte ${correctDots.join(', ')}`);
+        addRoundResult(currentLetter, ok, ok ? 'korrekt' : `Punkte ${correctDots.join(', ')}`);
+
+        if (ok) {
+          continueAfterDelay(900);
+        } else {
+          showCorrectSolution(currentLetter);
+          continueAfterDelay(3000);
+        }
+      }
+
+      function handleBTrySubmit() {
+        if (roundLocked || currentMode !== 'B' || !isRoundActive || isPaused) return;
+        roundLocked = true;
+        applyInteractionState();
+        clearInterval(timerId);
+
+        const value = (answerInput.value || '').trim().toUpperCase();
+        const ok = value === currentLetter;
+
+        updateLearning(currentLetter, ok);
+        registerGlobalResult(ok, ok ? `Richtig: ${currentLetter}` : `Falsch. Gesucht war ${currentLetter}`);
+        addRoundResult(currentLetter, ok, ok ? 'korrekt' : 'falsch beantwortet');
+        continueAfterDelay(900);
+      }
+
+      function handleTimeout() {
+        if (roundLocked || !isRoundActive) return;
+        roundLocked = true;
+        applyInteractionState();
+        updateLearning(currentLetter, false);
+
+        const correctDots = BRAILLE_MAP[currentLetter].join(', ');
+        if (currentMode === 'A') {
+          showCorrectSolution(currentLetter);
+          registerGlobalResult(false, `Zeit abgelaufen. ${currentLetter} = Punkte ${correctDots}`);
+          addRoundResult(currentLetter, false, `Zeit abgelaufen · Punkte ${correctDots}`);
+          continueAfterDelay(3000);
+        } else {
+          registerGlobalResult(false, `Zeit abgelaufen. Richtig war ${currentLetter}`);
+          addRoundResult(currentLetter, false, 'Zeit abgelaufen');
+          continueAfterDelay(1200);
+        }
+      }
+
+      function finishRound() {
+        clearInterval(timerId);
+        isRoundActive = false;
+        isPaused = false;
+        roundLocked = true;
+        currentLetter = null;
+        promptValue.textContent = currentMode === 'A' ? '–' : '•';
+        resetRoundBoard();
+        updateTimerUI();
+        applyInteractionState();
+
+        const correct = roundResults.filter(item => item.correct).length;
+        const wrong = roundResults.length - correct;
+        summaryTitle.textContent = `Auswertung: ${correct} richtig, ${wrong} falsch`;
+        summaryList.innerHTML = `
+          <div class="summary-item">Trefferquote: ${roundResults.length ? Math.round((correct / roundResults.length) * 100) : 0}%</div>
+          <div class="summary-item">Bearbeitet: ${roundResults.length} von ${ROUND_LENGTH}</div>
+          ${roundResults.filter(item => !item.correct).length
+            ? roundResults.filter(item => !item.correct).map(item => `<div class="summary-item">${item.letter}: ${item.reason}</div>`).join('')
+            : '<div class="summary-item">Keine Fehler in dieser Runde.</div>'}
+        `;
+        roundSummary.classList.add('open');
+        setFeedback('Runde beendet. Drücke Start für die nächste Runde.', 'neutral');
+        saveState();
+      }
+
+      function togglePause() {
+        if (!isRoundActive) return;
+        isPaused = !isPaused;
+        if (isPaused) {
+          clearInterval(timerId);
+          setFeedback('Pausiert', 'neutral');
+        } else {
+          setFeedback('Weiter', 'neutral');
+          startTimer();
+          if (currentMode === 'B') setTimeout(() => answerInput.focus(), 50);
+        }
+        applyInteractionState();
+      }
+
+      dots.forEach(dot => {
+        dot.addEventListener('click', () => {
+          if (currentMode !== 'A' || roundLocked || !isRoundActive || isPaused) return;
+          dot.classList.toggle('on');
+        });
+      });
+
+      aModeBtn.addEventListener('click', () => {
+        if (isRoundActive) return;
+        setMode('A');
+      });
+
+      bModeBtn.addEventListener('click', () => {
+        if (isRoundActive) return;
+        setMode('B');
+      });
+
+      startBtn.addEventListener('click', startRoundSession);
+      pauseBtn.addEventListener('click', togglePause);
+      aSubmitBtn.addEventListener('click', handleATrySubmit);
+      submitBtn.addEventListener('click', handleBTrySubmit);
+
+      answerInput.addEventListener('keydown', event => {
+        if (event.key === 'Enter') handleBTrySubmit();
+      });
+
+      answerInput.addEventListener('input', () => {
+        answerInput.value = answerInput.value.replace(/[^a-zA-Z]/g, '').slice(0, 1).toUpperCase();
+      });
+
+      menuBtn.addEventListener('click', () => {
+        const isOpen = menu.classList.toggle('open');
+        menu.setAttribute('aria-hidden', String(!isOpen));
+      });
+
+      document.addEventListener('click', event => {
+        const clickedInside = menu.contains(event.target) || menuBtn.contains(event.target);
+        if (!clickedInside) {
+          menu.classList.remove('open');
+          menu.setAttribute('aria-hidden', 'true');
+        }
+      });
+
+      resetBtn.addEventListener('click', () => {
+        const confirmed = window.confirm('Lernstand und Gewichtung wirklich zurücksetzen?');
+        if (!confirmed) return;
+        state = defaultState();
+        currentMode = 'A';
+        roundResults = [];
+        roundIndex = 0;
+        updateStats();
+        menu.classList.remove('open');
+        menu.setAttribute('aria-hidden', 'true');
+        setMode('A');
+        prepareIdleScreen();
+        roundSummary.classList.remove('open');
+        setFeedback('Lernstand zurückgesetzt', 'neutral');
+        saveState();
+      });
+
+      updateStats();
+      setMode(currentMode);
+      prepareIdleScreen();
+    })();
+  </script>
+</body>
+</html>
